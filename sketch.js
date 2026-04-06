@@ -16,7 +16,9 @@ let timerStart = 0;
 let revealDuration = 800; 
 let matchDelay = 1000;
 
-// p5.js needs preload to handle images before the game starts
+// Card dimensions that will be calculated based on screen size
+let w, h, gutter, startX, startY;
+
 function preload() {
   for (let i = 0; i < 20; i++) {
     cartoons[i] = loadImage(i + ".jpg");
@@ -24,8 +26,30 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(1000, 750);
+  // Use windowWidth and windowHeight for mobile responsiveness
+  createCanvas(windowWidth, windowHeight);
+  calculateLayout();
   setupGame();
+}
+
+// Recalculate if the phone is rotated
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  calculateLayout();
+  // Update existing card positions
+  setupGame(); 
+}
+
+function calculateLayout() {
+  // Dynamic sizing based on screen width
+  gutter = width * 0.015; // 1.5% of screen width
+  // Calculate width to fit 8 columns
+  w = (width - (gutter * (cols + 1))) / cols;
+  h = w; // Keep cards square
+  
+  startX = gutter;
+  // Center the grid vertically or start after the UI
+  startY = 140; 
 }
 
 function setupGame() {
@@ -41,20 +65,14 @@ function setupGame() {
     ids.push(i);
   }
   
-  // Shuffle array for p5.js
+  // Shuffle array
   for (let i = ids.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
   
-  let w = 95;
-  let h = 95;
-  let gutter = 12;
-  let startX = (width - (cols * (w + gutter))) / 2;
-  let startY = 160;
-  
   let index = 0;
-  cards = []; // Clear existing cards
+  cards = []; 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       let x = startX + c * (w + gutter);
@@ -98,12 +116,12 @@ function draw() {
 function displayStartScreen() {
   textAlign(CENTER, CENTER);
   fill(255);
-  textSize(60);
+  textSize(width * 0.1); // Scale text for mobile
   text("Let's play", width/2, height/2 - 30);
   
   fill(0, 255, 150);
-  textSize(28);
-  text("Click anywhere to play", width/2, height/2 + 50);
+  textSize(width * 0.05);
+  text("Tap anywhere to play", width/2, height/2 + 50);
 }
 
 function mousePressed() {
@@ -113,7 +131,6 @@ function mousePressed() {
     return;
   }
 
-  // Restart logic when win screen is showing
   if (gamePhase >= 1 && isGameOver()) {
     setupGame();
     gamePhase = -1;
@@ -151,6 +168,7 @@ function checkMatch() {
 }
 
 function isGameOver() {
+  if (cards.length === 0) return false;
   for (let c of cards) {
     if (!c.revealed) return false;
   }
@@ -160,26 +178,27 @@ function isGameOver() {
 function displayUI() {
   textAlign(CENTER);
   fill(255);
-  textSize(32);
-  text("Memory Game", width/2, 50);
+  textSize(width * 0.06);
+  text("Memory Game", width/2, 40);
   
-  textSize(22);
+  textSize(width * 0.04);
+  // Position scores relative to screen width
   fill(currentPlayer === 1 ? color(255, 100, 200) : 100);
-  text("P1 Score: " + p1Score, 200, 100);
+  text("P1: " + p1Score, width * 0.2, 80);
   
   fill(currentPlayer === 2 ? color(100, 200, 255) : 100);
-  text("P2 Score: " + p2Score, width - 200, 100);
+  text("P2: " + p2Score, width * 0.8, 80);
   
   fill(255, 215, 0);
-  if (gamePhase === 0) text("MEMORIZE!", width/2, 110);
-  else if (gamePhase === 1) text("PLAYER " + currentPlayer + ": GO!", width/2, 110);
+  if (gamePhase === 0) text("MEMORIZE!", width/2, 80);
+  else if (gamePhase === 1) text("P" + currentPlayer + " TURN", width/2, 110);
 }
 
 function displayWinScreen() {
   fill(0, 230);
   rect(0, 0, width, height);
   fill(255);
-  textSize(60);
+  textSize(width * 0.1);
   
   let winnerName = "";
   if (p1Score > p2Score) winnerName = "PLAYER 1";
@@ -189,16 +208,16 @@ function displayWinScreen() {
   text(winMessage, width/2, height/2 - 40);
   
   if (p1Score !== p2Score) {
-    textSize(28);
+    textSize(width * 0.04);
     fill(255, 215, 0);
-    text(winnerName + " Win who can guess more", width/2, height/2 + 20);
+    text("Great guessing!", width/2, height/2 + 20);
   }
 
   fill(255);
-  textSize(25);
-  text("Final Count: " + p1Score + " - " + p2Score, width/2, height/2 + 80);
+  textSize(width * 0.05);
+  text("Final Score: " + p1Score + " - " + p2Score, width/2, height/2 + 80);
   fill(0, 255, 150);
-  text("Click anywhere to play again", width/2, height/2 + 130);
+  text("Tap to play again", width/2, height/2 + 130);
 }
 
 class Card {
@@ -215,23 +234,26 @@ class Card {
     noStroke();
     if (this.revealed) {
       fill(255);
-      rect(this.x, this.y, this.w, this.h, 8); 
+      rect(this.x, this.y, this.w, this.h, 4); 
       if (cartoons[this.id]) {
         imageMode(CENTER);
-        image(cartoons[this.id], this.x + this.w/2, this.y + this.h/2, 87, 87);
+        // Image scales to fit inside the card
+        let imgSize = this.w * 0.9;
+        image(cartoons[this.id], this.x + this.w/2, this.y + this.h/2, imgSize, imgSize);
         imageMode(CORNER);
       }
     } else {
       fill(60, 40, 100); 
-      rect(this.x, this.y, this.w, this.h, 8);
+      rect(this.x, this.y, this.w, this.h, 4);
       fill(255, 50);
-      textSize(24);
+      textSize(this.w * 0.5);
       textAlign(CENTER, CENTER);
       text("?", this.x + this.w/2, this.y + this.h/2);
     }
   }
 
   isMouseOver() {
+    // Works for both mouse clicks and finger taps
     return mouseX > this.x && mouseX < this.x + this.w && mouseY > this.y && mouseY < this.y + this.h;
   }
 }
